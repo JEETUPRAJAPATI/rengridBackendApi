@@ -108,72 +108,172 @@ CREATE TABLE IF NOT EXISTS admin_password_resets (
 -- Properties table
 CREATE TABLE IF NOT EXISTS properties (
   id BIGSERIAL PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
+
+  -- Identifiers
+  unique_id VARCHAR(50) UNIQUE NOT NULL,
   slug VARCHAR(255) UNIQUE NOT NULL,
+
+  -- Basic Info
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  purpose VARCHAR(50),
+
+  -- Type & Category
+  category_id BIGINT REFERENCES property_categories(id) ON DELETE SET NULL,
+  property_type VARCHAR(50) NOT NULL CHECK (
+    property_type IN ('apartment', 'villa', 'house', 'plot', 'office', 'shop', 'warehouse', 'co-living')
+  ),
+  listing_type VARCHAR(20) NOT NULL CHECK (
+    listing_type IN ('rent', 'sale', 'lease')
+  ),
+
+  -- Financials
   price DECIMAL(12, 2),
+  monthly_rent DECIMAL(12, 2),
+  security_deposit DECIMAL(12, 2),
+
+  -- Location
   city VARCHAR(100),
   locality VARCHAR(150),
   address TEXT,
-  area_sqft DECIMAL(10, 2),
-  bedrooms INT,
-  bathrooms INT,
-  balconies INT,
-  bhk INT,
-  property_type VARCHAR(50),
-  purpose VARCHAR(50),
-  furnishing VARCHAR(50),
-  available_for VARCHAR(50),
-  status VARCHAR(50) DEFAULT 'draft',
+  map_location TEXT,
+  latitude DECIMAL(10, 6),
+  longitude DECIMAL(10, 6),
+
+  -- Area
+  area DECIMAL(10, 2) NOT NULL CHECK (area > 0),
+  area_unit VARCHAR(20) DEFAULT 'sqft' CHECK (
+    area_unit IN ('sqft', 'sqm', 'acre', 'bigha')
+  ),
+
+  -- Configuration
+  bedroom INTEGER DEFAULT 0 CHECK (bedroom >= 0),
+  bathroom INTEGER DEFAULT 0 CHECK (bathroom >= 0),
+  balcony INTEGER DEFAULT 0 CHECK (balcony >= 0),
+  bhk INTEGER DEFAULT 0 CHECK (bhk >= 0),
+  floor_no INTEGER,
+  total_floors INTEGER,
+
+  -- Furnishing & Media
+  furnish_type VARCHAR(30) DEFAULT 'unfurnished' CHECK (
+    furnish_type IN ('furnished', 'unfurnished', 'semi-furnished')
+  ),
+  floor_plan TEXT,
+
+  -- Availability
+  available_from DATE NOT NULL DEFAULT CURRENT_DATE,
+  available_for JSONB DEFAULT '["Family"]'::jsonb,
+
+  -- Status
+  status VARCHAR(30) DEFAULT 'draft' CHECK (
+    status IN ('draft', 'published', 'blocked', 'sold', 'rented', 'pending_verification', 'verified', 'rejected')
+  ),
   is_featured BOOLEAN DEFAULT FALSE,
-  owner_id BIGINT,
-  description TEXT,
+  is_verified BOOLEAN DEFAULT FALSE,
+  is_deleted BOOLEAN DEFAULT FALSE,
+
+  -- Verification
+  verified_by BIGINT REFERENCES admins(id) ON DELETE SET NULL,
+  verified_at TIMESTAMP,
+
+  -- Ownership
+  owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+
+  -- Analytics
+  views_count INTEGER DEFAULT 0,
+
+  -- Meta Info
   meta_title VARCHAR(255),
   meta_description TEXT,
   meta_keywords TEXT,
   canonical_url TEXT,
-  featured_image TEXT,
-  floor_plan TEXT,
-  map_latitude DECIMAL(10,6),
-  map_longitude DECIMAL(10,6),
-  map_address TEXT,
-  views INT DEFAULT 0,
-  is_deleted BOOLEAN DEFAULT FALSE,
+
+  -- Timestamps
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Property Images table
-CREATE TABLE IF NOT EXISTS property_images (
+CREATE TABLE property_images (
   id BIGSERIAL PRIMARY KEY,
   property_id BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-  image_url TEXT NOT NULL,
-  is_gallery BOOLEAN DEFAULT TRUE,
-  is_floor_plan BOOLEAN DEFAULT FALSE,
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW()
+  image_type VARCHAR(20) DEFAULT 'gallery' CHECK (image_type IN ('gallery', 'floor_plan', 'featured')),
+  video TEXT,
+  image_path TEXT NOT NULL,
+  is_primary BOOLEAN DEFAULT FALSE,
+  sort_order INTEGER DEFAULT 0,
+  alt_text VARCHAR(255),
+  uploaded_by BIGINT REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE property_documents (
+  id BIGSERIAL PRIMARY KEY,
+  property_id BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  doc_type VARCHAR(50) NOT NULL DEFAULT 'other' CHECK (doc_type IN ('ownership_deed', 'tax_receipt', 'noc', 'floor_plan', 'legal_clearance', 'rental_agreement', 'other')),
+  doc_path TEXT NOT NULL,
+  document_name VARCHAR(255),
+  file_size INTEGER,
+  mime_type VARCHAR(100),
+  is_verified BOOLEAN DEFAULT FALSE,
+  uploaded_by BIGINT REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Property Features table
-CREATE TABLE IF NOT EXISTS property_features (
+CREATE TABLE property_features (
   id BIGSERIAL PRIMARY KEY,
   property_id BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-  name VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
+  feature_key VARCHAR(100) NOT NULL,
+  feature_value TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 6. Property Location Table
+CREATE TABLE property_location (
+  id BIGSERIAL PRIMARY KEY,
+  property_id BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  country VARCHAR(100) DEFAULT 'India',
+  state VARCHAR(100) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  locality VARCHAR(150) NOT NULL,
+  landmark VARCHAR(255),
+  zipcode VARCHAR(20),
+  full_address TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(property_id)
+);
 -- Amenities table
-CREATE TABLE IF NOT EXISTS amenities (
+-- 7. Amenities Table
+CREATE TABLE amenities (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(100) UNIQUE NOT NULL,
+  category VARCHAR(50) DEFAULT 'general' CHECK (category IN ('general', 'security', 'recreation', 'convenience', 'connectivity')),
   icon VARCHAR(100),
-  created_at TIMESTAMP DEFAULT NOW()
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Property Amenities junction table
-CREATE TABLE IF NOT EXISTS property_amenities (
+-- 8. Property Amenities Junction Table
+CREATE TABLE property_amenities (
   property_id BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   amenity_id BIGINT NOT NULL REFERENCES amenities(id) ON DELETE CASCADE,
   PRIMARY KEY (property_id, amenity_id)
+);
+CREATE TABLE property_categories (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  slug VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  icon VARCHAR(100),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Create indexes for better performance

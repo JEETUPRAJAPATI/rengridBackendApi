@@ -33,7 +33,7 @@ export class AdminController {
           limit: parseInt(req.query.limit) || 10,
           search: req.query.search || ''
         };
-        
+
         const result = await AdminService.getAllAdmins(filters);
         res.json(formatResponse(true, 'Admins retrieved successfully', result));
       } catch (error) {
@@ -128,7 +128,7 @@ export class AdminController {
 
         // Assign permissions
         if (permissionIds && permissionIds.length > 0) {
-          const permissionQueries = permissionIds.map(permissionId => 
+          const permissionQueries = permissionIds.map(permissionId =>
             query('INSERT INTO permission_role (role_id, permission_id) VALUES ($1, $2)', [roleId, permissionId])
           );
           await Promise.all(permissionQueries);
@@ -158,14 +158,14 @@ export class AdminController {
         const rolesWithPermissions = await Promise.all(
           rolesResult.rows.map(async (role) => {
             const permissionsResult = await query(`
-              SELECT p.module, p.action 
+              SELECT p.module, p.action
               FROM permissions p
               JOIN permission_role pr ON p.id = pr.permission_id
               WHERE pr.role_id = $1
             `, [role.id]);
 
             const permissions = groupPermissionsByModule(permissionsResult.rows);
-            
+
             return {
               ...role,
               permissions

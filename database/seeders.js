@@ -73,7 +73,7 @@ const seedDatabase = async () => {
     const managerRoleResult = await query('SELECT id FROM roles WHERE slug = $1', ['manager']);
     if (managerRoleResult.rows.length > 0) {
       const managerRoleId = managerRoleResult.rows[0].id;
-      
+
       for (const permissionName of managerPermissions) {
         const permissionResult = await query('SELECT id FROM permissions WHERE name = $1', [permissionName]);
         if (permissionResult.rows.length > 0) {
@@ -159,78 +159,7 @@ const seedDatabase = async () => {
     logger.info('✅ Amenities created');
 
     // 8. Create sample properties
-    const sampleProperties = [
-      {
-        title: 'Luxury 3BHK Apartment in Mumbai',
-        slug: 'luxury-3bhk-apartment-mumbai',
-        price: 8500000,
-        city: 'Mumbai',
-        locality: 'Bandra West',
-        address: '123 Linking Road, Bandra West, Mumbai',
-        area_sqft: 1200,
-        bedrooms: 3,
-        bathrooms: 2,
-        balconies: 2,
-        bhk: 3,
-        property_type: 'apartment',
-        purpose: 'sale',
-        furnishing: 'furnished',
-        available_for: 'family',
-        status: 'published',
-        is_featured: true,
-        description: 'Beautiful 3BHK apartment with modern amenities and great location.',
-        meta_title: 'Luxury 3BHK Apartment for Sale in Mumbai',
-        meta_description: 'Premium 3BHK apartment in Bandra West with modern amenities',
-        meta_keywords: 'apartment, mumbai, bandra, 3bhk, luxury',
-        map_latitude: 19.0596,
-        map_longitude: 72.8295,
-        map_address: 'Bandra West, Mumbai, Maharashtra'
-      }
-    ];
 
-    for (const property of sampleProperties) {
-      const propertyResult = await query(`
-        INSERT INTO properties (
-          title, slug, price, city, locality, address, area_sqft, bedrooms, bathrooms, balconies,
-          bhk, property_type, purpose, furnishing, available_for, status, is_featured,
-          description, meta_title, meta_description, meta_keywords, map_latitude, map_longitude, map_address
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-        ON CONFLICT (slug) DO NOTHING
-        RETURNING id
-      `, [
-        property.title, property.slug, property.price, property.city, property.locality, property.address,
-        property.area_sqft, property.bedrooms, property.bathrooms, property.balconies, property.bhk,
-        property.property_type, property.purpose, property.furnishing, property.available_for,
-        property.status, property.is_featured, property.description, property.meta_title,
-        property.meta_description, property.meta_keywords, property.map_latitude, property.map_longitude,
-        property.map_address
-      ]);
-
-      if (propertyResult.rows.length > 0) {
-        const propertyId = propertyResult.rows[0].id;
-        
-        // Add some features
-        const features = ['Balcony', 'Modular Kitchen', 'Parking', 'Security'];
-        for (const feature of features) {
-          await query(`
-            INSERT INTO property_features (property_id, name)
-            VALUES ($1, $2)
-          `, [propertyId, feature]);
-        }
-
-        // Add some amenities
-        const amenityIds = [1, 2, 3, 4]; // Swimming Pool, Gym, Parking, Security
-        for (const amenityId of amenityIds) {
-          await query(`
-            INSERT INTO property_amenities (property_id, amenity_id)
-            VALUES ($1, $2)
-            ON CONFLICT (property_id, amenity_id) DO NOTHING
-          `, [propertyId, amenityId]);
-        }
-      }
-    }
-    logger.info('✅ Sample properties created');
 
     logger.info('🎉 Database seeding completed successfully!');
     logger.info('\n📋 Login Credentials:');
